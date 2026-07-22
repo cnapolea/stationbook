@@ -1,4 +1,5 @@
-const { InvalidCredentialsError } = require('../../lib/errors');
+const { JsonWebTokenError } = require('jsonwebtoken');
+const { AuthenticationError } = require('../../lib/errors');
 const { Prisma } = require('../../lib/prisma');
 const z = require('zod');
 
@@ -26,7 +27,10 @@ function errorHandler(error, req, res, next) {
     });
 
     res.status(400).json({ errorList });
-  } else if (error instanceof InvalidCredentialsError) {
+  } else if (
+    error instanceof AuthenticationError ||
+    error instanceof JsonWebTokenError
+  ) {
     res.status(401).json({ message: error.message });
   } else {
     res.status(500).json({

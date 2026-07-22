@@ -1,12 +1,11 @@
-require('dotenv').config();
 const z = require('zod');
 const bcrypt = require('bcrypt');
 
 const { prisma } = require('../lib/prisma');
 const jwt = require('jsonwebtoken');
-const { InvalidCredentialsError } = require('../lib/errors');
+const { AuthenticationError } = require('../lib/errors');
 
-const jwtSecret = `${process.env.JWT_SECRET}`;
+const { JWT_SECRET } = require('../lib/constants');
 
 const RegisterBody = z.object({
   firstName: z.string(),
@@ -45,7 +44,7 @@ async function register(reqData) {
     role: user.role,
   };
 
-  const token = jwt.sign(payload, jwtSecret, {
+  const token = jwt.sign(payload, JWT_SECRET, {
     expiresIn: '7d',
   });
 
@@ -69,13 +68,13 @@ async function login(reqData) {
     const DUMMY_HASH =
       'i09cnSAYHv6okd6AnracFhdyc2khb43oc0NMGZGTu7ZG4kgJ0fMYmXRzo99aQVslDUdr7sitwgjM5tydsnFCPQ==';
     await bcrypt.compare(password, DUMMY_HASH);
-    throw new InvalidCredentialsError('Invalid email or password.');
+    throw new AuthenticationError('Invalid email or password.');
   }
 
   // Hash comparison.
   const passwordCheck = await bcrypt.compare(password, user.passwordHash);
   if (!passwordCheck)
-    throw new InvalidCredentialsError('Invalid email or password.');
+    throw new AuthenticationError('Invalid email or password.');
 
   // Generate signed jwt.
   const payload = {
@@ -83,7 +82,7 @@ async function login(reqData) {
     role: user.role,
   };
 
-  const token = jwt.sign(payload, jwtSecret, {
+  const token = jwt.sign(payload, JWT_SECRET, {
     expiresIn: '7d',
   });
 
