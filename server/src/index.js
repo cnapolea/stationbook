@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const healthRouter = require('./health/health');
-const authRouter = require('./api/routes/auth');
 const errorHandler = require('./api/middleware/errorHandler');
 const routeGuard = require('./api/middleware/routeGuard');
+
+const { apiRouter, authRouter } = require('./api/routes');
+
 const app = express();
 const PORT = 4000;
 
@@ -15,9 +17,7 @@ app.use(
 app.use(express.json());
 app.use(healthRouter);
 app.use('/auth', authRouter);
-app.get('/manual-auth-test', routeGuard, (req, res) => {
-  res.status(200).json({ ...req.user });
-});
+app.use('/api', routeGuard, apiRouter);
 
 app.use(errorHandler);
 
