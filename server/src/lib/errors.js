@@ -6,6 +6,15 @@ class AuthenticationError extends Error {
   }
 }
 
+class ClientBadRequestError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ClientBadRequestError';
+    Error.captureStackTrace(this);
+  }
+}
+
 module.exports = {
   AuthenticationError,
+  ClientBadRequestError,
 };

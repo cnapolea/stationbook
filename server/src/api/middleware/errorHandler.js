@@ -1,5 +1,8 @@
 const { JsonWebTokenError } = require('jsonwebtoken');
-const { AuthenticationError } = require('../../lib/errors');
+const {
+  AuthenticationError,
+  ClientBadRequestError,
+} = require('../../lib/errors');
 const { Prisma } = require('../../lib/prisma');
 const z = require('zod');
 
@@ -28,10 +31,21 @@ function errorHandler(error, req, res, next) {
 
     res.status(400).json({ errorList });
   } else if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2025'
+  ) {
+    res.status(404).json({
+      message: `Resource does not exist.`,
+    });
+  } else if (
     error instanceof AuthenticationError ||
     error instanceof JsonWebTokenError
   ) {
     res.status(401).json({ message: error.message });
+  } else if (error instanceof ClientBadRequestError) {
+    res.status(400).json({
+      message: error.message,
+    });
   } else {
     res.status(500).json({
       message: 'Internal server error.',
