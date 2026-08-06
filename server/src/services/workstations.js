@@ -8,7 +8,7 @@ const {
 } = require('../lib/constants');
 
 const { validateDate } = require('../lib/formInputValidators');
-const { NotFoundError } = require('../lib/errors');
+const { NotFoundError, ClientBadRequestError } = require('../lib/errors');
 
 /**
  * fetchWorkstations fetches all workstations requested by the client.
@@ -47,13 +47,19 @@ async function getWorkstationTimeSlots(reqData) {
     },
     select: {
       id: true,
+      isActive: true,
     },
   });
 
-  if (!workstation)
+  if (!workstation) {
     throw new NotFoundError(
       ERROR_MESSAGE.RESOURCE_DOES_NOT_EXIST('Workstation'),
     );
+  } else if (!workstation.isActive) {
+    throw new NotFoundError(
+      ERROR_MESSAGE.RESOURCE_DOES_NOT_EXIST('Workstation'),
+    );
+  }
 
   // Retrieve the booking times from the db.
   const nextDayOfBooking = new Date(

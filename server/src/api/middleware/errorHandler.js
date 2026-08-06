@@ -39,8 +39,6 @@ function errorHandler(error, req, res, next) {
     res.status(401).json({ message: ERROR_MESSAGE.INVALID_INPUT('token') });
   } else if (error instanceof ResourceAlreadyExistsError) {
     res.status(409).json({ message: error.message });
-  } else if (error instanceof UnavailableResourceError) {
-    res.status(503).json({ message: error.message });
   } else {
     res.status(500).json({
       message: 'Internal server error.',

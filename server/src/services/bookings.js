@@ -11,7 +11,6 @@ const {
 const {
   ResourceAlreadyExistsError,
   ClientBadRequestError,
-  UnavailableResourceError,
 } = require('../lib/errors');
 
 async function createBooking(reqData) {
@@ -71,8 +70,8 @@ async function createBooking(reqData) {
         ERROR_MESSAGE.RESOURCE_DOES_NOT_EXIST('Workstation'),
       );
     } else if (!workstation.isActive) {
-      throw new UnavailableResourceError(
-        ERROR_MESSAGE.RESOURCE_UNAVAILABLE('Workstation'),
+      throw new ClientBadRequestError(
+        ERROR_MESSAGE.RESOURCE_DOES_NOT_EXIST('Workstation'),
       );
     }
 
