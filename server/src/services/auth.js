@@ -2,54 +2,83 @@ const z = require('zod');
 const bcrypt = require('bcrypt');
 
 const { prisma } = require('../lib/prisma');
+const { PrismaClientKnownRequestError } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
-const { AuthenticationError } = require('../lib/errors');
+const {
+  AuthenticationError,
+  ResourceAlreadyExistsError,
+} = require('../lib/errors');
 
-const { JWT_SECRET } = require('../lib/constants');
+const {
+  JWT_SECRET,
+  DUMMY_HASH,
+  ERROR_MESSAGE,
+  PASSWORD_REGEX,
+} = require('../lib/constants');
+const { validateStringInput } = require('../lib/formInputValidators');
+
+const Email = z.email().toLowerCase().trim();
 
 const RegisterBody = z.object({
-  firstName: z.string(),
-  lastName: z.string(),
-  email: z.email(),
-  password: z.string(),
+  firstName: z.string().refine((value) => validateStringInput(value), {
+    error: ERROR_MESSAGE.INVALID_INPUT('first name'),
+  }),
+  lastName: z.string().refine((value) => validateStringInput(value), {
+    error: ERROR_MESSAGE.INVALID_INPUT('last name'),
+  }),
+  email: Email,
+  password: z.string().regex(PASSWORD_REGEX, {
+    error: ERROR_MESSAGE.INVALID_INPUT('password'),
+  }),
 });
 
 const LoginBody = z.object({
-  email: z.email(),
+  email: Email,
   password: z.string(),
 });
 
 async function register(reqData) {
   // 1. Validate the structure of the incoming request with zod.
-  const data = await RegisterBody.parseAsync(reqData);
+  try {
+    const data = await RegisterBody.parseAsync(reqData);
 
-  // 2. Hashing of the user's inputted password
-  const password = data.password;
-  const saltRounds = 10;
-  const passwordHash = await bcrypt.hash(password, saltRounds);
+    // 2. Hashing of the user's inputted password
+    const password = data.password;
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
 
-  // 3. Storing the user in the db
-  const record = {
-    firstName: data.firstName,
-    lastName: data.lastName,
-    email: data.email,
-    passwordHash,
-  };
+    // 3. Storing the user in the db
+    const record = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      passwordHash,
+    };
 
-  const user = await prisma.user.create({ data: record });
+    const user = await prisma.user.create({ data: record });
 
-  //4. Let's create the jwt
-  const payload = {
-    id: user.id,
-    role: user.role,
-  };
+    //4. Let's create the jwt
+    const payload = {
+      id: user.id,
+      role: user.role,
+    };
 
-  const token = jwt.sign(payload, JWT_SECRET, {
-    expiresIn: '7d',
-  });
+    const token = jwt.sign(payload, JWT_SECRET, {
+      expiresIn: '7d',
+    });
 
-  //5. Returning response to router
-  return { user: payload, token };
+    //5. Returning response to router
+    return { user: payload, token };
+  } catch (error) {
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new ResourceAlreadyExistsError(
+        ERROR_MESSAGE.RESOURCE_ALREADY_EXISTS('Email'),
+      );
+    } else throw error;
+  }
 }
 
 async function login(reqData) {
@@ -65,8 +94,6 @@ async function login(reqData) {
 
   // Timing attack mechanism.
   if (!user) {
-    const DUMMY_HASH =
-      'i09cnSAYHv6okd6AnracFhdyc2khb43oc0NMGZGTu7ZG4kgJ0fMYmXRzo99aQVslDUdr7sitwgjM5tydsnFCPQ==';
     await bcrypt.compare(password, DUMMY_HASH);
     throw new AuthenticationError('Invalid email or password.');
   }

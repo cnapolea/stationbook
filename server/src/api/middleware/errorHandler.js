@@ -1,27 +1,19 @@
-const { JsonWebTokenError } = require('jsonwebtoken');
 const {
   AuthenticationError,
   ClientBadRequestError,
+  ResourceAlreadyExistsError,
+  NotFoundError,
+  UnavailableResourceError,
 } = require('../../lib/errors');
-const { Prisma } = require('../../lib/prisma');
+
 const z = require('zod');
+const { ERROR_MESSAGE } = require('../../lib/constants');
+const { JsonWebTokenError } = require('jsonwebtoken');
 
 function errorHandler(error, req, res, next) {
   console.error(error);
-  if (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2002'
-  ) {
-    const duplicateField =
-      // This shape comes from an Adapter internal which has no public contract. This means that in the future, if this adapter is updated, this line might not be useful.
-      error.meta?.driverAdapterError?.cause?.constraint?.fields?.join(', ');
 
-    if (!duplicateField) {
-      res.status(409).json({ message: 'Resource already exists' });
-    } else {
-      res.status(409).json({ message: `${duplicateField} already exists` });
-    }
-  } else if (error instanceof z.ZodError) {
+  if (error instanceof z.ZodError) {
     const errorList = error.issues.map((e) => {
       return {
         fieldName: e.path[0],
@@ -30,22 +22,25 @@ function errorHandler(error, req, res, next) {
     });
 
     res.status(400).json({ errorList });
-  } else if (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2025'
-  ) {
+  } else if (error instanceof NotFoundError) {
     res.status(404).json({
-      message: `Resource does not exist.`,
+      message: error.message,
     });
-  } else if (
-    error instanceof AuthenticationError ||
-    error instanceof JsonWebTokenError
-  ) {
+  } else if (error instanceof AuthenticationError) {
     res.status(401).json({ message: error.message });
-  } else if (error instanceof ClientBadRequestError) {
+  } else if (
+    error instanceof ClientBadRequestError ||
+    (error instanceof SyntaxError && error.type === 'entity.parse.failed')
+  ) {
     res.status(400).json({
       message: error.message,
     });
+  } else if (error instanceof JsonWebTokenError) {
+    res.status(401).json({ message: ERROR_MESSAGE.INVALID_INPUT('token') });
+  } else if (error instanceof ResourceAlreadyExistsError) {
+    res.status(409).json({ message: error.message });
+  } else if (error instanceof UnavailableResourceError) {
+    res.status(503).json({ message: error.message });
   } else {
     res.status(500).json({
       message: 'Internal server error.',

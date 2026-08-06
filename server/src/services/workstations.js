@@ -4,8 +4,11 @@ const {
   SLOT_START_TIMES,
   BOOKING_STATUS,
   SLOT_LENGTH_HOUR,
+  ERROR_MESSAGE,
 } = require('../lib/constants');
-const { ClientBadRequestError } = require('../lib/errors');
+
+const { validateDate } = require('../lib/formInputValidators');
+const { NotFoundError } = require('../lib/errors');
 
 /**
  * fetchWorkstations fetches all workstations requested by the client.
@@ -28,32 +31,33 @@ async function getWorkstationTimeSlots(reqData) {
   // Ensure we get the correct information from the incoming request
   const WorkstationTimeSlotsBody = z.object({
     workstationId: z.int(),
-    date: z.iso.date(),
+    date: z.iso.date().refine((val) => validateDate(val), {
+      error: ERROR_MESSAGE.INVALID_INPUT('Date: Date in the past'),
+    }),
   });
 
   const data = await WorkstationTimeSlotsBody.parseAsync(reqData);
 
-  //Check if date is the past
-  const currentDate = new Date();
   const bookingDate = new Date(data.date);
 
-  const dateValidation =
-    currentDate.toISOString().split('T')[0] <=
-    bookingDate.toISOString().split('T')[0];
-
-  if (!dateValidation)
-    throw new ClientBadRequestError('Cannot see time slots in the past.');
-
   // We here check if the workstation exists.
-  await prisma.workstation.findFirstOrThrow({
+  const workstation = await prisma.workstation.findUnique({
     where: {
       id: data.workstationId,
     },
+    select: {
+      id: true,
+    },
   });
+
+  if (!workstation)
+    throw new NotFoundError(
+      ERROR_MESSAGE.RESOURCE_DOES_NOT_EXIST('Workstation'),
+    );
 
   // Retrieve the booking times from the db.
   const nextDayOfBooking = new Date(
-    new Date(bookingDate).setDate(bookingDate.getDate() + 1),
+    new Date(bookingDate).setUTCDate(bookingDate.getUTCDate() + 1),
   );
 
   const bookingsStartTimes = await prisma.booking.findMany({
@@ -75,9 +79,17 @@ async function getWorkstationTimeSlots(reqData) {
     bookingsStartTimes.map((booking) => booking.startTime.getUTCHours()),
   );
 
-  const availableTimeSlots = SLOT_START_TIMES.filter(
-    (item) => !slotStartTimesUnavailable.has(item),
-  ).map((hour) => ({
+  const availableTimeSlots = SLOT_START_TIMES.filter((item) => {
+    const isNotBooked = !slotStartTimesUnavailable.has(item);
+    const bookingTimeSlot = new Date(new Date(bookingDate)).setUTCHours(
+      item,
+      0,
+      0,
+      0,
+    );
+    const isTimeSlotInFuture = bookingTimeSlot > new Date().getTime();
+    return isNotBooked && isTimeSlotInFuture;
+  }).map((hour) => ({
     startTime: new Date(new Date(bookingDate).setUTCHours(hour, 0, 0, 0)),
     endTime: new Date(
       new Date(bookingDate).setUTCHours(hour + SLOT_LENGTH_HOUR, 0, 0, 0),
