@@ -4,14 +4,14 @@ import app from '../app';
 import { prisma } from '../lib/prisma';
 import z from 'zod';
 
-test.describe('POST /auth/register', () => {
-  const data = {
-    email: 'test@user.com',
-    password: 'c8d1K/z2Xz1/',
-    firstName: 'Test',
-    lastName: 'User',
-  };
+const data = {
+  email: 'test@user.com',
+  password: 'c8d1K/z2Xz1/',
+  firstName: 'Test',
+  lastName: 'User',
+};
 
+test.describe('POST /auth/register', () => {
   const dataIncorrectPassword = {
     email: 'test@user.com',
     password: '12345',
@@ -81,6 +81,84 @@ test.describe('POST /auth/register', () => {
 
     const response = await request(app).post('/auth/register').send(data);
     expect(response.statusCode).toEqual(409);
+  });
+});
+
+test.describe('POST /auth/login', () => {
+  test.beforeEach(async () => {
+    await request(app).post('/auth/register').send(data);
+  });
+
+  test('Returns 200 status code if a successful login', async () => {
+    const response = await request(app).post('/auth/login').send({
+      email: 'test@user.com',
+      password: 'c8d1K/z2Xz1/',
+    });
+    expect(response.statusCode).toEqual(200);
+  });
+
+  test('Returns 200 status code if for a successful login if user inputs a capitalized email', async () => {
+    const response = await request(app).post('/auth/login').send({
+      email: 'TEST@USER.COM',
+      password: 'c8d1K/z2Xz1/',
+    });
+    expect(response.statusCode).toEqual(200);
+  });
+
+  test('Response body returns id, role and token after a successful login', async () => {
+    const response = await request(app).post('/auth/login').send({
+      email: 'TEST@USER.COM',
+      password: 'c8d1K/z2Xz1/',
+    });
+    expect(response.body).toEqual({
+      user: {
+        id: expect.schemaMatching(z.uuidv4()),
+        role: expect.schemaMatching(z.literal('STUDENT')),
+      },
+      token: expect.schemaMatching(z.jwt()),
+    });
+  });
+
+  test('Returns 401 for an invalid email', async () => {
+    const response = await request(app).post('/auth/login').send({
+      email: 'iloveyou@virus.com',
+      password: 'c8d1K/z2Xz1/',
+    });
+    expect(response.statusCode).toEqual(401);
+  });
+
+  test('Returns 401 for an invalid password', async () => {
+    const response = await request(app).post('/auth/login').send({
+      email: 'test@user.com',
+      password: '17364023nhbdjsbv',
+    });
+    expect(response.statusCode).toEqual(401);
+  });
+
+  test('Returns 401 for both invalid email and password', async () => {
+    const response1 = await request(app).post('/auth/login').send({
+      email: 'iloveyou@virus.com',
+      password: 'c8d1K/z2Xz1/',
+    });
+    const response2 = await request(app).post('/auth/login').send({
+      email: 'test@user.com',
+      password: '17364023nhbdjsbv',
+    });
+    expect(response1.statusCode).toEqual(response2.statusCode);
+  });
+
+  test('Returns 400 for a missing email', async () => {
+    const response = await request(app).post('/auth/login').send({
+      password: 'c8d1K/z2Xz1/',
+    });
+    expect(response.statusCode).toEqual(400);
+  });
+
+  test('Returns 400 for a missing password', async () => {
+    const response = await request(app).post('/auth/login').send({
+      email: 'test@user.com',
+    });
+    expect(response.statusCode).toEqual(400);
   });
 });
 
