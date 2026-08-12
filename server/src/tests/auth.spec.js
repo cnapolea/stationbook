@@ -135,7 +135,7 @@ test.describe('POST /auth/login', () => {
     expect(response.statusCode).toEqual(401);
   });
 
-  test('Returns 401 for both invalid email and password', async () => {
+  test('Returns an identical response for unknown email and wrong password', async () => {
     const response1 = await request(app).post('/auth/login').send({
       email: 'iloveyou@virus.com',
       password: 'c8d1K/z2Xz1/',
@@ -144,7 +144,9 @@ test.describe('POST /auth/login', () => {
       email: 'test@user.com',
       password: '17364023nhbdjsbv',
     });
+    expect(response1.body).toEqual(response2.body);
     expect(response1.statusCode).toEqual(response2.statusCode);
+    expect(response1.statusCode).toEqual(401);
   });
 
   test('Returns 400 for a missing email', async () => {
