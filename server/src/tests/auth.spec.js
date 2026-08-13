@@ -82,6 +82,9 @@ test.describe('POST /auth/register', () => {
     const response = await request(app).post('/auth/register').send(data);
     expect(response.statusCode).toEqual(409);
   });
+  afterEach(async () => {
+    await prisma.user.deleteMany();
+  });
 });
 
 test.describe('POST /auth/login', () => {
@@ -162,10 +165,10 @@ test.describe('POST /auth/login', () => {
     });
     expect(response.statusCode).toEqual(400);
   });
-});
 
-afterEach(async () => {
-  await prisma.user.deleteMany();
+  afterEach(async () => {
+    await prisma.user.deleteMany();
+  });
 });
 
 afterAll(async () => await prisma.$disconnect());

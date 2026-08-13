@@ -4,8 +4,9 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "dotenv -e .env.test -- vitest --watch=false",
+    "test": "dotenv -e .env.test -- vitest --watch=false --no-file-parallelism",
     "test:migrate": "dotenv -e .env.test -- prisma migrate deploy",
+    "test:seed": "dotenv -e .env.test -- prisma db seed",
     "dev": "pnpm nodemon ./src/server.js"
   },
   "keywords": [],

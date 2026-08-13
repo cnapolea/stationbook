@@ -43,6 +43,7 @@ async function createBooking(reqData) {
       0,
       0,
     );
+
     if (bookingStartTime.getTime() !== correctFormatSlotTime) {
       throw new ClientBadRequestError(ERROR_MESSAGE.INVALID_INPUT('Time Slot'));
     }
