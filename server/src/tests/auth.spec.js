@@ -34,7 +34,7 @@ test.describe('POST /auth/register', () => {
 
   test('Returns 201 status code on successful registration', async () => {
     const response = await request(app).post('/auth/register').send(data);
-    expect(response.statusCode).toBe(201);
+    expect(response.statusCode).toEqual(201);
   });
 
   test('Returns the id, role and token of registered user on successful registration', async () => {

@@ -2,6 +2,8 @@ import { test, expect, beforeEach, afterEach, afterAll } from 'vitest';
 import request from 'supertest';
 import app from '../app';
 import { prisma } from '../lib/prisma';
+import z from 'zod';
+import { validateDate } from '../lib/formInputValidators';
 
 /**
  * Integration Test for POST /api/booking endpoint
@@ -32,9 +34,7 @@ import { prisma } from '../lib/prisma';
  *
  * 3. Test conflicts
  * 3.1 409 if user already has an active booking
- * 3.2 409 if a user tries to book an already booked station
- * 3.3 409 for user B if user A books station first and user B tries to book it right after
- *
+ * 3.2 409 if a user tries to book an already booked station at the same timeslot
  */
 
 test.describe('Test POST /api/bookings', () => {
@@ -57,25 +57,108 @@ test.describe('Test POST /api/bookings', () => {
     ctx.userB = userB.body;
   });
 
-  test('Returns 201 status code on succesful booking', async ({ userB }) => {
+  const getBookingDate = (bookingStartHour = 0, daysInTheFuture = 1) => {
     const currentDate = new Date();
-    const validBookingDateTime = new Date();
+    const validDate = new Date();
+    validDate.setUTCDate(currentDate.getUTCDate() + daysInTheFuture);
+    validDate.setUTCHours(bookingStartHour, 0, 0, 0);
+    return validDate;
+  };
 
-    validBookingDateTime.setUTCDate(currentDate.getUTCDate() + 1);
-    validBookingDateTime.setUTCHours(0, 0, 0, 0);
+  const workstationId = 1;
 
-    const workstationId = 1;
+  test('Returns 201 status code on succesful booking', async ({ userB }) => {
     const token = `Bearer ${userB.token}`;
     const response = await request(app)
       .post('/api/bookings')
       .send({
         workstationId,
-        startTime: validBookingDateTime,
+        startTime: getBookingDate(),
       })
       .set('Content-Type', 'application/json')
       .set('authorization', token);
 
-    expect(response.statusCode).toBe(201);
+    expect(response.statusCode).toEqual(201);
+  });
+
+  test("Successful booking returns the booking's id, workstation id, startTime, endTime, status ", async ({
+    userB,
+  }) => {
+    const token = `Bearer ${userB.token}`;
+    const response = await request(app)
+      .post('/api/bookings')
+      .send({
+        workstationId,
+        startTime: getBookingDate(),
+      })
+      .set('Content-Type', 'application/json')
+      .set('authorization', token);
+
+    expect(response.body).toEqual({
+      booking: {
+        id: expect.schemaMatching(z.uuidv4().nonempty()),
+        workstationId: expect.schemaMatching(
+          z.int().nonnegative().nonoptional(),
+        ),
+        startTime: expect.schemaMatching(
+          z.iso.datetime().refine((val) => validateDate(val)),
+        ),
+        endTime: expect.schemaMatching(z.iso.datetime()),
+        status: expect.schemaMatching(z.literal('BOOKED')),
+      },
+    });
+  });
+
+  test('Return 409 if user has active booking', async ({ userB }) => {
+    const token = `Bearer ${userB.token}`;
+
+    await request(app)
+      .post('/api/bookings')
+      .send({
+        workstationId,
+        startTime: getBookingDate(3),
+      })
+      .set('Content-Type', 'application/json')
+      .set('authorization', token);
+
+    const response = await request(app)
+      .post('/api/bookings')
+      .send({
+        workstationId,
+        startTime: getBookingDate(12, 4),
+      })
+      .set('Content-Type', 'application/json')
+      .set('authorization', token);
+
+    expect(response.statusCode).toEqual(409);
+  });
+
+  test('Return 409 if user tries to book a a booked station in same timeslot', async ({
+    userA,
+    userB,
+  }) => {
+    const tokenB = `Bearer ${userB.token}`;
+    const tokenA = `Bearer ${userA.token}`;
+
+    await request(app)
+      .post('/api/bookings')
+      .send({
+        workstationId,
+        startTime: getBookingDate(3),
+      })
+      .set('Content-Type', 'application/json')
+      .set('authorization', tokenA);
+
+    const response = await request(app)
+      .post('/api/bookings')
+      .send({
+        workstationId,
+        startTime: getBookingDate(3),
+      })
+      .set('Content-Type', 'application/json')
+      .set('authorization', tokenB);
+
+    expect(response.statusCode).toEqual(409);
   });
 
   afterEach(async () => {
