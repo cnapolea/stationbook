@@ -7,8 +7,7 @@ const {
   ERROR_MESSAGE,
 } = require('../lib/constants');
 
-const { validateDate } = require('../lib/formInputValidators');
-const { NotFoundError, ClientBadRequestError } = require('../lib/errors');
+const { NotFoundError } = require('../lib/errors');
 
 /**
  * fetchWorkstations fetches all workstations requested by the client.
@@ -36,7 +35,8 @@ async function getWorkstationTimeSlots(reqData) {
         const today = new Date();
         const queryDate = new Date(val);
         return (
-          new Date(today.toDateString()) <= new Date(queryDate.toDateString())
+          new Date(today.toLocaleDateString()) <=
+          new Date(queryDate.toLocaleDateString())
         );
       },
       {

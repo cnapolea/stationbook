@@ -192,7 +192,10 @@ test.describe('Test POST /api/bookings', () => {
     ],
     [
       'Incorrect timeslot format',
-      { workstationId: 1, startTime: '2026-08-19T00:30:00Z' },
+      {
+        workstationId: 1,
+        startTime: new Date(getBookingDate(12, 30).setUTCMinutes(30)),
+      },
       400,
     ],
   ])(

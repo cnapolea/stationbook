@@ -1,7 +1,6 @@
 function validateStringInput(value) {
-  const valueLength = value.length !== 0;
   const valueIsNotEmpty = value.trim() !== '';
-  return valueLength && valueIsNotEmpty;
+  return valueIsNotEmpty;
 }
 
 function validateDate(date) {
