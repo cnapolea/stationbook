@@ -122,6 +122,35 @@ async function createBooking(reqData) {
   }
 }
 
+async function getStudentBookings(reqData) {
+  const userId = reqData.userId;
+  const bookings = await prisma.booking.findMany({
+    where: {
+      userId,
+      status: BOOKING_STATUS.BOOKED,
+      endTime: { gt: new Date() },
+    },
+    select: {
+      id: true,
+      startTime: true,
+      endTime: true,
+      workstation: {
+        select: {
+          label: true,
+        },
+      },
+    },
+    orderBy: {
+      startTime: 'asc',
+    },
+  });
+
+  return {
+    bookings,
+  };
+}
+
 module.exports = {
   createBooking,
+  getStudentBookings,
 };
