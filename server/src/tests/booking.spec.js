@@ -30,7 +30,7 @@ import { validateDate } from '../lib/formInputValidators';
  * 2.6  400 for missing property startTime
  * 2.7  400 for booking a non-existent timeslot
  * 2.8  400 for booking a timeslot in the past
- * 2.9  400 for booking with the incorrect timeslot format
+ 
  *
  * 3. Test conflicts
  * 3.1 409 if user already has an active booking
@@ -57,10 +57,10 @@ test.describe('Test POST /api/bookings', () => {
     ctx.userB = userB.body;
   });
 
-  const getBookingDate = (bookingStartHour = 0, daysInTheFuture = 1) => {
+  const getBookingDate = (bookingStartHour = 0, daysToAdd = 1) => {
     const currentDate = new Date();
     const validDate = new Date();
-    validDate.setUTCDate(currentDate.getUTCDate() + daysInTheFuture);
+    validDate.setUTCDate(currentDate.getUTCDate() + daysToAdd);
     validDate.setUTCHours(bookingStartHour, 0, 0, 0);
     return validDate;
   };
@@ -161,12 +161,91 @@ test.describe('Test POST /api/bookings', () => {
     expect(response.statusCode).toEqual(409);
   });
 
+  test.for([
+    [
+      'non-existent workstation',
+      { workstationId: 99999, startTime: getBookingDate() },
+      400,
+    ],
+    [
+      'inactive workstation',
+      { workstationId: 2, startTime: getBookingDate() },
+      400,
+    ],
+    ['empty request body', {}, 400],
+    ['missing workstationId', { startTime: getBookingDate() }, 400],
+    ['missing startTime', { workstationId: 1 }, 400],
+    [
+      'non-existent timeslot',
+      { workstationId: 1, startTime: getBookingDate(1) },
+      400,
+    ],
+    [
+      'timeslot in the past',
+      { workstationId: 1, startTime: getBookingDate(0, 0) },
+      400,
+    ],
+    [
+      'date in the past',
+      { workstationId: 1, startTime: getBookingDate(12, -1) },
+      400,
+    ],
+    [
+      'Incorrect timeslot format',
+      { workstationId: 1, startTime: '2026-08-19T00:30:00Z' },
+      400,
+    ],
+  ])(
+    'Returns 400 status code for: $0',
+    async ([testDescription, requestBody, expectedStatusCode], { userB }) => {
+      await prisma.workstation.update({
+        where: { id: 2 },
+        data: {
+          isActive: false,
+        },
+      });
+      const token = `Bearer ${userB.token}`;
+      const response = await request(app)
+        .post('/api/bookings')
+        .send(requestBody)
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
+      expect(response.statusCode).toEqual(expectedStatusCode);
+    },
+  );
+
+  test('Inactive and non-existent workstation must produce 400 status code and same response.body', async ({
+    userB,
+  }) => {
+    const token = `Bearer ${userB.token}`;
+    const responseOne = await request(app)
+      .post('/api/bookings')
+      .send({ workstationId: 99999, startTime: getBookingDate() })
+      .set('Content-Type', 'application/json')
+      .set('authorization', token);
+    const responseTwo = await request(app)
+      .post('/api/bookings')
+      .send({ workstationId: 2, startTime: getBookingDate() })
+      .set('Content-Type', 'application/json')
+      .set('authorization', token);
+
+    expect(responseOne.statusCode).toEqual(responseTwo.statusCode);
+    expect(responseOne.body).toEqual(responseTwo.body);
+    expect(responseOne.statusCode).toEqual(400);
+  });
+
   afterEach(async () => {
     await prisma.booking.deleteMany();
     await prisma.user.deleteMany();
   });
 
   afterAll(async () => {
+    await prisma.workstation.update({
+      where: { id: 2 },
+      data: {
+        isActive: true,
+      },
+    });
     await prisma.$disconnect();
   });
 });

@@ -48,13 +48,6 @@ async function createBooking(reqData) {
       throw new ClientBadRequestError(ERROR_MESSAGE.INVALID_INPUT('Time Slot'));
     }
 
-    // Then check if that time as already passed
-    const currentTime = Date.now();
-    if (currentTime > bookingStartTime.getTime())
-      throw new ClientBadRequestError(
-        ERROR_MESSAGE.INVALID_INPUT('booking timeslot'),
-      );
-
     // Checking if the workstation exists and is active.
     const workstation = await prisma.workstation.findUnique({
       where: {

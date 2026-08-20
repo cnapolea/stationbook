@@ -31,9 +31,18 @@ async function getWorkstationTimeSlots(reqData) {
   // Ensure we get the correct information from the incoming request
   const WorkstationTimeSlotsBody = z.object({
     workstationId: z.int(),
-    date: z.iso.date().refine((val) => validateDate(val), {
-      error: ERROR_MESSAGE.INVALID_INPUT('Date: Date in the past'),
-    }),
+    date: z.iso.date().refine(
+      (val) => {
+        const today = new Date();
+        const queryDate = new Date(val);
+        return (
+          new Date(today.toDateString()) <= new Date(queryDate.toDateString())
+        );
+      },
+      {
+        error: ERROR_MESSAGE.INVALID_INPUT('Date: Date in the past'),
+      },
+    ),
   });
 
   const data = await WorkstationTimeSlotsBody.parseAsync(reqData);
