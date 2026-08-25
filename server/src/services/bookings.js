@@ -7,10 +7,13 @@ const {
   SLOT_LENGTH_HOUR,
   SLOT_START_TIMES,
   BOOKING_STATUS,
+  TWO_HOURS_IN_MS,
 } = require('../lib/constants');
 const {
-  ResourceAlreadyExistsError,
+  ConflictError,
   ClientBadRequestError,
+  NotFoundError,
+  AuthorizationError,
 } = require('../lib/errors');
 
 async function createBooking(reqData) {
@@ -80,7 +83,7 @@ async function createBooking(reqData) {
     });
 
     if (userHasBooking)
-      throw new ResourceAlreadyExistsError(
+      throw new ConflictError(
         ERROR_MESSAGE.RESOURCE_ALREADY_EXISTS('Active booking'),
       );
 
@@ -115,9 +118,7 @@ async function createBooking(reqData) {
       error instanceof PrismaClientKnownRequestError &&
       error.code === 'P2002'
     ) {
-      throw new ResourceAlreadyExistsError(
-        ERROR_MESSAGE.RESOURCE_ALREADY_EXISTS('Booking'),
-      );
+      throw new ConflictError(ERROR_MESSAGE.RESOURCE_ALREADY_EXISTS('Booking'));
     } else throw error;
   }
 }
@@ -150,7 +151,61 @@ async function getStudentBookings(reqData) {
   };
 }
 
+async function editStudentBooking(reqData) {
+  const userId = reqData.userId;
+  const bookingId = reqData.bookingId;
+  const booking = await prisma.booking.findUnique({
+    where: {
+      id: bookingId,
+    },
+    select: {
+      startTime: true,
+      status: true,
+      userId: true,
+    },
+  });
+
+  if (!booking) {
+    // First check if the booking exists
+    throw new NotFoundError(ERROR_MESSAGE.RESOURCE_DOES_NOT_EXIST('Booking'));
+  } else if (booking.userId !== userId) {
+    // Check if student is allowed to update this booking
+    throw new AuthorizationError(ERROR_MESSAGE.RESOURCE_FORBIDDEN('booking'));
+  } else if (booking.status === BOOKING_STATUS.CANCELLED) {
+    // Check booking status is already cancelled
+    return;
+  }
+
+  // Let's check if the booking is about to start in less than 2 hours
+  const currentTime = new Date();
+  const bookingTime = new Date(booking.startTime);
+
+  if (bookingTime - currentTime < TWO_HOURS_IN_MS) {
+    // Check if booking is not starting in less than 2 hours
+    throw new ConflictError(ERROR_MESSAGE.BOOKING_CHANGE_HOUR_POLICY);
+  }
+
+  const editBookingBody = z.object({
+    status: z.literal(BOOKING_STATUS.CANCELLED),
+  });
+
+  const data = await editBookingBody.parseAsync(reqData.data);
+
+  // Just updating the status. Later on we will also update the startTime
+  await prisma.booking.update({
+    where: {
+      id: bookingId,
+    },
+    data: {
+      ...data,
+    },
+  });
+
+  return;
+}
+
 module.exports = {
   createBooking,
   getStudentBookings,
+  editStudentBooking,
 };

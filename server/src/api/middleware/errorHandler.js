@@ -1,9 +1,9 @@
 const {
   AuthenticationError,
   ClientBadRequestError,
-  ResourceAlreadyExistsError,
+  ConflictError,
   NotFoundError,
-  UnavailableResourceError,
+  AuthorizationError,
 } = require('../../lib/errors');
 
 const z = require('zod');
@@ -37,8 +37,10 @@ function errorHandler(error, req, res, next) {
     });
   } else if (error instanceof JsonWebTokenError) {
     res.status(401).json({ message: ERROR_MESSAGE.INVALID_INPUT('token') });
-  } else if (error instanceof ResourceAlreadyExistsError) {
+  } else if (error instanceof ConflictError) {
     res.status(409).json({ message: error.message });
+  } else if (error instanceof AuthorizationError) {
+    res.status(403).json({ message: error.message });
   } else {
     res.status(500).json({
       message: 'Internal server error.',

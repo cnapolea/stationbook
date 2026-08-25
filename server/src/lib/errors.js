@@ -16,10 +16,10 @@ class ClientBadRequestError extends Error {
   }
 }
 
-class ResourceAlreadyExistsError extends Error {
+class ConflictError extends Error {
   constructor(message) {
     super(message);
-    this.name = 'ResourceAlreadyExistsError';
+    this.name = 'ConflictError';
     Error.captureStackTrace(this);
   }
 }
@@ -32,10 +32,10 @@ class NotFoundError extends Error {
   }
 }
 
-class UnavailableResourceError extends Error {
+class AuthorizationError extends Error {
   constructor(message) {
     super(message);
-    this.name = 'UnavailableResourceError';
+    this.name = 'AuthorizationError';
     Error.captureStackTrace(this);
   }
 }
@@ -59,9 +59,9 @@ class ServerConfigError extends Error {
 module.exports = {
   AuthenticationError,
   ClientBadRequestError,
-  ResourceAlreadyExistsError,
+  ConflictError,
   NotFoundError,
-  UnavailableResourceError,
   TokenError,
   ServerConfigError,
+  AuthorizationError,
 };

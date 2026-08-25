@@ -4,10 +4,7 @@ const bcrypt = require('bcrypt');
 const { prisma } = require('../lib/prisma');
 const { PrismaClientKnownRequestError } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
-const {
-  AuthenticationError,
-  ResourceAlreadyExistsError,
-} = require('../lib/errors');
+const { AuthenticationError, ConflictError } = require('../lib/errors');
 
 const {
   JWT_SECRET,
@@ -74,9 +71,7 @@ async function register(reqData) {
       error instanceof PrismaClientKnownRequestError &&
       error.code === 'P2002'
     ) {
-      throw new ResourceAlreadyExistsError(
-        ERROR_MESSAGE.RESOURCE_ALREADY_EXISTS('Email'),
-      );
+      throw new ConflictError(ERROR_MESSAGE.RESOURCE_ALREADY_EXISTS('Email'));
     } else throw error;
   }
 }

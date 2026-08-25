@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "test": "dotenv -e .env.test -- vitest --watch=false --no-file-parallelism",
+    "test:minimal": "dotenv -e .env.test -- vitest --watch=false --no-file-parallelism --reporter=minimal",
     "test:migrate": "dotenv -e .env.test -- prisma migrate deploy",
     "test:seed": "dotenv -e .env.test -- prisma db seed",
     "dev": "pnpm nodemon ./src/server.js"

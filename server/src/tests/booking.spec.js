@@ -1,9 +1,10 @@
-import { test, expect, beforeEach, afterEach, afterAll } from 'vitest';
+import { test, expect, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import app from '../app';
 import { prisma } from '../lib/prisma';
 import z from 'zod';
 import { validateDate } from '../lib/formInputValidators';
+import { BOOKING_STATUS } from '../lib/constants';
 
 test.describe('Booking Endpoint', () => {
   beforeEach(async (ctx) => {
@@ -239,60 +240,197 @@ test.describe('Booking Endpoint', () => {
         .set('authorization', token);
       expect(response.body.bookings.length).toEqual(0);
     });
-  });
 
-  test('Returns an array with one booking', async ({ userA }) => {
-    const token = `Bearer ${userA.token}`;
+    test('Returns an array with one booking', async ({ userA }) => {
+      const token = `Bearer ${userA.token}`;
 
-    await request(app)
-      .post('/api/bookings')
-      .send({
-        workstationId,
-        startTime: getBookingDate(12, 10),
-      })
-      .set('Content-Type', 'application/json')
-      .set('authorization', token);
+      await request(app)
+        .post('/api/bookings')
+        .send({
+          workstationId,
+          startTime: getBookingDate(12, 10),
+        })
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
 
-    const response = await request(app)
-      .get('/api/bookings/me')
-      .set('authorization', token);
-    expect(response.body.bookings.length).toEqual(1);
-  });
+      const response = await request(app)
+        .get('/api/bookings/me')
+        .set('authorization', token);
+      expect(response.body.bookings.length).toEqual(1);
+    });
 
-  test('Response body matches expected object', async ({ userA }) => {
-    const token = `Bearer ${userA.token}`;
+    test('Response body matches expected object', async ({ userA }) => {
+      const token = `Bearer ${userA.token}`;
 
-    const bookingDate = getBookingDate(12, 10);
-    const bookingEndDate = new Date(bookingDate);
+      const bookingDate = getBookingDate(12, 10);
+      const bookingEndDate = new Date(bookingDate);
 
-    const expectedResponseBody = [
-      {
-        id: '',
-        startTime: bookingDate.toJSON(),
-        endTime: new Date(
-          bookingEndDate.setUTCHours(bookingDate.getUTCHours() + 3),
-        ).toJSON(),
-        workstation: {
-          label: 'c1r1s1',
+      const expectedResponseBody = [
+        {
+          id: '',
+          startTime: bookingDate.toJSON(),
+          endTime: new Date(
+            bookingEndDate.setUTCHours(bookingDate.getUTCHours() + 3),
+          ).toJSON(),
+          workstation: {
+            label: 'c1r1s1',
+          },
         },
-      },
-    ];
+      ];
 
-    const bookingDetails = await request(app)
-      .post('/api/bookings')
-      .send({
-        workstationId,
-        startTime: getBookingDate(12, 10),
-      })
-      .set('Content-Type', 'application/json')
-      .set('authorization', token);
+      const bookingDetails = await request(app)
+        .post('/api/bookings')
+        .send({
+          workstationId,
+          startTime: getBookingDate(12, 10),
+        })
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
 
-    expectedResponseBody[0].id = bookingDetails.body.booking.id;
+      expectedResponseBody[0].id = bookingDetails.body.booking.id;
 
-    const response = await request(app)
-      .get('/api/bookings/me')
-      .set('authorization', token);
-    expect(response.body.bookings).toMatchObject(expectedResponseBody);
+      const response = await request(app)
+        .get('/api/bookings/me')
+        .set('authorization', token);
+      expect(response.body.bookings).toMatchObject(expectedResponseBody);
+    });
+  });
+
+  test.describe('Test PATCH /api/bookings', () => {
+    beforeEach(async (ctx) => {
+      const token = `Bearer ${ctx.userA.token}`;
+      const response = await request(app)
+        .post('/api/bookings')
+        .send({
+          workstationId,
+          startTime: getBookingDate(12),
+        })
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
+      ctx.booking = response.body.booking;
+    });
+
+    test('Asserts: response status code = 204 and db booking status is CANCELLED', async ({
+      userA,
+      booking,
+    }) => {
+      const token = `Bearer ${userA.token}`;
+      const response = await request(app)
+        .patch(`/api/bookings/${booking.id}`)
+        .send({
+          status: BOOKING_STATUS.CANCELLED,
+        })
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
+
+      const dbBooking = await prisma.booking.findUnique({
+        where: { id: booking.id },
+        select: { status: true },
+      });
+
+      expect(response.statusCode).toEqual(204);
+      expect(dbBooking.status).toEqual(BOOKING_STATUS.CANCELLED);
+    });
+
+    test('Asserts: response status code = 204 and db booking status is CANCELLED - for a already cancelled booking', async ({
+      userA,
+      booking,
+    }) => {
+      await prisma.booking.update({
+        where: {
+          id: booking.id,
+        },
+        data: {
+          status: BOOKING_STATUS.CANCELLED,
+        },
+      });
+
+      const token = `Bearer ${userA.token}`;
+      const response = await request(app)
+        .patch(`/api/bookings/${booking.id}`)
+        .send({
+          status: BOOKING_STATUS.CANCELLED,
+        })
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
+
+      const dbBooking = await prisma.booking.findUnique({
+        where: { id: booking.id },
+        select: { status: true },
+      });
+      expect(response.statusCode).toEqual(204);
+      expect(dbBooking.status).toEqual(BOOKING_STATUS.CANCELLED);
+    });
+
+    test('Returns 404 status code for: non-existing booking', async ({
+      userA,
+    }) => {
+      const token = `Bearer ${userA.token}`;
+      const response = await request(app)
+        .patch('/api/bookings/12343abc')
+        .send({
+          status: BOOKING_STATUS.CANCELLED,
+        })
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
+
+      expect(response.statusCode).toEqual(404);
+    });
+
+    test('Returns 403 status code for: unauthorized booking update by non booking owner', async ({
+      userB,
+      booking,
+    }) => {
+      const token = `Bearer ${userB.token}`;
+      const response = await request(app)
+        .patch(`/api/bookings/${booking.id}`)
+        .send({
+          status: BOOKING_STATUS.CANCELLED,
+        })
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
+
+      expect(response.statusCode).toEqual(403);
+    });
+
+    test('Returns 409 status code for: booking starting in less than 2 hours', async ({
+      userA,
+      booking,
+    }) => {
+      const startTime = new Date(booking.startTime);
+      const mockDate = new Date(
+        new Date(startTime).setUTCHours(startTime.getUTCHours() - 1, 0, 0, 0),
+      );
+
+      vi.setSystemTime(mockDate);
+
+      const token = `Bearer ${userA.token}`;
+      const response = await request(app)
+        .patch(`/api/bookings/${booking.id}`)
+        .send({
+          status: BOOKING_STATUS.CANCELLED,
+        })
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
+
+      expect(response.statusCode).toEqual(409);
+    });
+
+    test('Returns 400 status code for: Wrong status value, where value = BOOKED', async ({
+      userA,
+      booking,
+    }) => {
+      const token = `Bearer ${userA.token}`;
+      const response = await request(app)
+        .patch(`/api/bookings/${booking.id}`)
+        .send({
+          status: BOOKING_STATUS.BOOKED,
+        })
+        .set('Content-Type', 'application/json')
+        .set('authorization', token);
+
+      expect(response.statusCode).toEqual(400);
+    });
   });
 
   afterEach(async () => {
