@@ -9,18 +9,19 @@ import {
   SCREEN_STATES,
 } from '../lib/constants';
 
-export function Login() {
+export function Register() {
+  const [firstName, setFirstName] = useState(null);
+  const [lastName, setLastName] = useState(null);
   const [email, setEmail] = useState(null);
   const [password, setPassword] = useState(null);
+
   let [state, setState] = useState(SCREEN_STATES.IDLE);
   let [alertMessage, setAlertMessage] = useState('');
 
   const navigate = useNavigate();
 
-  const handleSubmitBtn = async (e) => {
-    e.preventDefault();
-
-    if (!email || !password) {
+  const handleSubmitBtn = async () => {
+    if ([firstName, lastName, email, password].includes(null)) {
       setAlertMessage('All fields must be filled.');
       setState(SCREEN_STATES.ERROR);
       return;
