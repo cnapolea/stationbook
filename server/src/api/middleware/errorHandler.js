@@ -14,14 +14,11 @@ function errorHandler(error, req, res, next) {
   console.error(error);
 
   if (error instanceof z.ZodError) {
-    const errorList = error.issues.map((e) => {
-      return {
-        fieldName: e.path[0],
-        message: e.message,
-      };
+    const errors = error.issues.map((e) => {
+      return { message: e.message, field: e.path[0] };
     });
 
-    res.status(400).json({ errorList });
+    res.status(400).json({ errors });
   } else if (error instanceof NotFoundError) {
     res.status(404).json({
       message: error.message,
