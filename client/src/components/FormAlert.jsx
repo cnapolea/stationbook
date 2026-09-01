@@ -1,4 +1,4 @@
-const FormAlert = ({ type, message }) => {
+const FormAlert = ({ type, messages }) => {
   const classNameType = {
     danger:
       'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative',
@@ -9,9 +9,13 @@ const FormAlert = ({ type, message }) => {
   };
 
   return (
-    <div class={classNameType[type]} role='alert'>
-      <span class='block sm:inline'>{message}</span>
-    </div>
+    <ul className={classNameType[type]} role='alert'>
+      {messages?.map((message, i) => (
+        <li key={i} className='block sm:inline'>
+          {message}
+        </li>
+      ))}
+    </ul>
   );
 };
 

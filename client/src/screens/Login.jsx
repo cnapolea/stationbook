@@ -1,80 +1,93 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
-import LoginForm from '../components/LoginForm';
-import FormAlert from '../components/FormAlert';
 import {
   ALERT_TYPES,
+  AUTH_TYPE,
+  CLIENT_ROUTES,
+  FORM_INPUT_TYPES,
   HTTP_REQUEST_METHOD,
   SCREEN_STATES,
 } from '../lib/constants';
+import authBtnHandler from '../lib/authBtnHandler';
+import AuthForm from '../components/AuthForm';
+import FormAlert from '../components/FormAlert';
 
 export function Login() {
-  const [email, setEmail] = useState(null);
-  const [password, setPassword] = useState(null);
-  let [state, setState] = useState(SCREEN_STATES.IDLE);
-  let [alertMessage, setAlertMessage] = useState('');
+  const [email, setEmail] = useState({
+    name: 'email',
+    placeholder: 'Email',
+    value: '',
+    type: FORM_INPUT_TYPES.EMAIL,
+  });
+  const [password, setPassword] = useState({
+    name: 'password',
+    placeholder: 'Password',
+    value: '',
+    type: FORM_INPUT_TYPES.PASSWORD,
+  });
+  const [state, setState] = useState(SCREEN_STATES.IDLE);
 
-  const navigate = useNavigate();
+  const [alertMessage, setAlertMessage] = useState('');
+
+  const inputFields = {
+    email: {
+      properties: email,
+      setValue: setEmail,
+    },
+    password: {
+      properties: password,
+      setValue: setPassword,
+    },
+  };
+
+  const stateManager = {
+    getState: () => state,
+    changeState: (newState) => setState(newState),
+  };
+
+  const reqObj = {
+    url: 'http://localhost:4000/auth/login',
+    options: {
+      method: HTTP_REQUEST_METHOD.POST,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email.value,
+        password: password.value,
+      }),
+    },
+  };
 
   const handleSubmitBtn = async (e) => {
     e.preventDefault();
-
-    if (!email || !password) {
-      setAlertMessage('All fields must be filled.');
-      setState(SCREEN_STATES.ERROR);
-      return;
-    } else {
-      setState(SCREEN_STATES.LOADING);
-      const response = await fetch('http://localhost:4000/auth/login', {
-        method: HTTP_REQUEST_METHOD.POST,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setAlertMessage('Incorrect Email or Password.');
-        setState(SCREEN_STATES.ERROR);
-      } else if (response.ok && response.status === 200) {
-        const token = data.token;
-        localStorage.setItem('token', token);
-        setState(SCREEN_STATES.SUCCESS);
-        setAlertMessage('Successful Login');
-        navigate('/workstation', {
-          replace: true,
-        });
-      }
-    }
+    await authBtnHandler(inputFields, stateManager, reqObj, setAlertMessage);
   };
 
   return (
     <>
       {state === SCREEN_STATES.IDLE ? (
-        <LoginForm
-          setEmailFn={setEmail}
-          setPasswordFn={setPassword}
-          handleSubmitBtnFn={handleSubmitBtn}
+        <AuthForm
+          authType={AUTH_TYPE.LOGIN}
+          inputFields={inputFields}
+          onSubmitHandler={handleSubmitBtn}
         />
       ) : state === SCREEN_STATES.ERROR ? (
         <div>
-          <FormAlert type={ALERT_TYPES.WARNING} message={alertMessage} />
-          <LoginForm
-            setEmailFn={setEmail}
-            setPasswordFn={setPassword}
-            handleSubmitBtnFn={handleSubmitBtn}
+          {alertMessage.trim() !== '' && (
+            <FormAlert type={ALERT_TYPES.WARNING} messages={[alertMessage]} />
+          )}
+          <AuthForm
+            authType={AUTH_TYPE.LOGIN}
+            inputFields={inputFields}
+            onSubmitHandler={handleSubmitBtn}
           />
         </div>
       ) : state === SCREEN_STATES.LOADING ? (
         <LoadingSpinner />
       ) : (
-        <FormAlert type={ALERT_TYPES.SUCCESS} message={alertMessage} />
+        <Navigate to={CLIENT_ROUTES.WORKSTATIONS} replace={true} />
       )}
     </>
   );

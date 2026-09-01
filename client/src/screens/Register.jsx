@@ -1,81 +1,120 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
-import LoginForm from '../components/LoginForm';
-import FormAlert from '../components/FormAlert';
+
 import {
-  ALERT_TYPES,
+  AUTH_TYPE,
+  CLIENT_ROUTES,
+  FORM_INPUT_TYPES,
   HTTP_REQUEST_METHOD,
   SCREEN_STATES,
 } from '../lib/constants';
+import authBtnHandler from '../lib/authBtnHandler';
+import AuthForm from '../components/AuthForm';
 
 export function Register() {
-  const [firstName, setFirstName] = useState(null);
-  const [lastName, setLastName] = useState(null);
-  const [email, setEmail] = useState(null);
-  const [password, setPassword] = useState(null);
+  const [firstName, setFirstName] = useState({
+    name: 'firstName',
+    placeholder: 'First Name',
+    value: '',
+    type: FORM_INPUT_TYPES.TEXT,
+  });
+  const [lastName, setLastName] = useState({
+    name: 'lastName',
+    placeholder: 'Last Name',
+    value: '',
+    type: FORM_INPUT_TYPES.TEXT,
+  });
+  const [email, setEmail] = useState({
+    name: 'email',
+    placeholder: 'Email',
+    value: '',
+    type: FORM_INPUT_TYPES.EMAIL,
+  });
+  const [password, setPassword] = useState({
+    name: 'password',
+    placeholder: 'Password',
+    value: '',
+    type: FORM_INPUT_TYPES.PASSWORD,
+  });
+  const [confirmPassword, setConfirmPassword] = useState({
+    name: 'confirmPassword',
+    placeholder: 'Confirm Password',
+    value: '',
+    type: FORM_INPUT_TYPES.PASSWORD,
+  });
 
-  let [state, setState] = useState(SCREEN_STATES.IDLE);
-  let [alertMessage, setAlertMessage] = useState('');
+  const [state, setState] = useState(SCREEN_STATES.IDLE);
 
-  const navigate = useNavigate();
+  const inputFields = {
+    firstName: {
+      properties: firstName,
+      setValue: setFirstName,
+    },
+    lastName: {
+      properties: lastName,
+      setValue: setLastName,
+    },
+    email: {
+      properties: email,
+      setValue: setEmail,
+    },
+    password: {
+      properties: password,
+      setValue: setPassword,
+    },
+    confirmPassword: {
+      properties: confirmPassword,
+      setValue: setConfirmPassword,
+    },
+  };
 
-  const handleSubmitBtn = async () => {
-    if ([firstName, lastName, email, password].includes(null)) {
-      setAlertMessage('All fields must be filled.');
-      setState(SCREEN_STATES.ERROR);
-      return;
-    } else {
-      setState(SCREEN_STATES.LOADING);
-      const response = await fetch('http://localhost:4000/auth/login', {
-        method: HTTP_REQUEST_METHOD.POST,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
+  const stateManager = {
+    getState: () => state,
+    changeState: (newState) => setState(newState),
+  };
 
-      const data = await response.json();
+  const reqObj = {
+    url: 'http://localhost:4000/auth/register',
+    options: {
+      method: HTTP_REQUEST_METHOD.POST,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        firstName: firstName.value,
+        lastName: lastName.value,
+        email: email.value,
+        password: password.value,
+      }),
+    },
+  };
 
-      if (!response.ok) {
-        setAlertMessage('Incorrect Email or Password.');
-        setState(SCREEN_STATES.ERROR);
-      } else if (response.ok && response.status === 200) {
-        const token = data.token;
-        localStorage.setItem('token', token);
-        setState(SCREEN_STATES.SUCCESS);
-        setAlertMessage('Successful Login');
-        navigate('/workstation', {
-          replace: true,
-        });
-      }
-    }
+  const handleSubmitBtn = async (e) => {
+    e.preventDefault();
+    await authBtnHandler(inputFields, stateManager, reqObj);
   };
 
   return (
     <>
       {state === SCREEN_STATES.IDLE ? (
-        <LoginForm
-          setEmailFn={setEmail}
-          setPasswordFn={setPassword}
-          handleSubmitBtnFn={handleSubmitBtn}
+        <AuthForm
+          authType={AUTH_TYPE.REGISTER}
+          inputFields={inputFields}
+          onSubmitHandler={handleSubmitBtn}
         />
       ) : state === SCREEN_STATES.ERROR ? (
         <div>
-          <FormAlert type={ALERT_TYPES.WARNING} message={alertMessage} />
-          <LoginForm
-            setEmailFn={setEmail}
-            setPasswordFn={setPassword}
-            handleSubmitBtnFn={handleSubmitBtn}
+          <AuthForm
+            authType={AUTH_TYPE.REGISTER}
+            inputFields={inputFields}
+            onSubmitHandler={handleSubmitBtn}
           />
         </div>
       ) : state === SCREEN_STATES.LOADING ? (
         <LoadingSpinner />
       ) : (
-        <FormAlert type={ALERT_TYPES.SUCCESS} message={alertMessage} />
+        <Navigate to={CLIENT_ROUTES.WORKSTATIONS} replace={true} />
       )}
     </>
   );

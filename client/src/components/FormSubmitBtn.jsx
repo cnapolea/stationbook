@@ -1,7 +1,7 @@
-export const FormSubmitBtn = ({ type, btnText, onSubmitHandler }) => {
+export const FormSubmitBtn = ({ btnText, onSubmitHandler }) => {
   return (
     <button
-      type={type}
+      type='submit'
       onClick={onSubmitHandler}
       className='text-white-500 border cursor-pointer'
     >
