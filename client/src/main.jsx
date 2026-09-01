@@ -5,6 +5,8 @@ import './index.css';
 import { Login } from './screens/Login.jsx';
 import { Health } from './screens/Health.jsx';
 import { Register } from './screens/Register.jsx';
+import Workstations from './screens/Workstations.jsx';
+import ProtectedRoutes from './components/ProtectedRoutes.jsx';
 
 const router = createBrowserRouter([
   {
@@ -18,6 +20,15 @@ const router = createBrowserRouter([
   {
     path: '/register',
     element: <Register />,
+  },
+  {
+    element: <ProtectedRoutes />,
+    children: [
+      {
+        path: '/workstations',
+        element: <Workstations />,
+      },
+    ],
   },
 ]);
 
