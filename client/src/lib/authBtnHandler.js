@@ -42,7 +42,6 @@ const authBtnHandler = async (
     const data = await response.json();
 
     if (!response.ok) {
-      console.log('ERROR =====> ', data.errors);
       if (data.errors) {
         data.errors.forEach((error) => {
           inputFields[error.field].setValue((cv) => ({
