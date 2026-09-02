@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '../../config';
+
 export const ALERT_TYPES = {
   WARNING: 'warning',
   DANGER: 'danger',
@@ -9,6 +11,7 @@ export const SCREEN_STATES = {
   ERROR: 'error',
   LOADING: 'loading',
   SUCCESS: 'success',
+  LOADED: 'loaded',
 };
 
 export const HTTP_REQUEST_METHOD = {
@@ -32,4 +35,15 @@ export const FORM_INPUT_TYPES = {
 export const AUTH_TYPE = {
   LOGIN: 'login',
   REGISTER: 'register',
+};
+
+export const SERVER_API_ENDPOINTS = {
+  login: `${API_BASE_URL}/auth/login`,
+  register: `${API_BASE_URL}/auth/register`,
+  workstations: `${API_BASE_URL}/api/workstations`,
+};
+
+export const RESPONSE_STATUS_CODE = {
+  NOT_AUTHENTICATED: 401,
+  SUCCESS: 200,
 };
