@@ -60,7 +60,7 @@ const Workstations = () => {
             <WorkstationModal
               workstation={selectedWorkstation}
               token={token}
-              clearWorkstation={setSelectedWorkstation}
+              clearModal={setSelectedWorkstation}
             />
           )}
         </div>

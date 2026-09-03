@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { useState } from 'react';
 import {
+  CLIENT_ROUTES,
   HTTP_REQUEST_METHOD,
+  RESPONSE_STATUS_CODE,
   SCREEN_STATES,
   SERVER_API_ENDPOINTS,
 } from '../lib/constants';
@@ -11,34 +13,69 @@ import LoadingSpinner from './LoadingSpinner';
 import Error from '../screens/Error';
 import getHourAndMinutes from '../lib/getHourAndMinutes';
 
-const WorkstationModal = ({ workstation, token, clearWorkstation }) => {
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  console.log(date);
+const WorkstationModal = ({ workstation, token, clearModal }) => {
+  const today = new Date().toISOString().split('T')[0];
+  const [date, setDate] = useState(today);
 
   const [state, setState] = useState(SCREEN_STATES.IDLE);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(date);
+  const [selectedSlot, setSelectedSlot] = useState(null);
 
   const setters = { setData, setState, setError };
-  const query = new URLSearchParams({ date });
   const navigate = useNavigate();
 
-  const reqObj = {
-    url: `${SERVER_API_ENDPOINTS.workstationSlots(workstation.id)}?${query}`,
-    options: {
-      method: HTTP_REQUEST_METHOD.GET,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  };
-
   useEffect(() => {
+    const query = new URLSearchParams({ date });
+    const reqObj = {
+      url: `${SERVER_API_ENDPOINTS.workstationSlots(workstation.id)}?${query}`,
+      options: {
+        method: HTTP_REQUEST_METHOD.GET,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    };
+
     fetchData(setters, reqObj, navigate);
   }, [date]);
 
   function handleCalendarInput(e) {
-    setDate(e.target.value);
+    setSelectedDate(e.target.value);
+  }
+
+  async function bookWorkstation() {
+    const reqObj = {
+      url: SERVER_API_ENDPOINTS.bookings,
+      options: {
+        method: HTTP_REQUEST_METHOD.POST,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workstationId: workstation.id,
+          startTime: selectedSlot.startTime,
+        }),
+      },
+    };
+
+    const response = await fetch(reqObj.url, { ...reqObj.options });
+    const data = await response.json();
+
+    if (
+      !response.ok &&
+      response.status === RESPONSE_STATUS_CODE.NOT_AUTHENTICATED
+    ) {
+      navigate(CLIENT_ROUTES.LOGIN, { replace: true });
+    } else if (!response.ok) {
+      setError({ statusCode: response.status, message: data.message });
+      setState(SCREEN_STATES.ERROR);
+    } else {
+      clearModal(null);
+      navigate('/my-bookings');
+    }
   }
 
   return (
@@ -47,7 +84,7 @@ const WorkstationModal = ({ workstation, token, clearWorkstation }) => {
         <div>
           <div>
             <h1>{workstation.label}</h1>
-            <button onClick={() => clearWorkstation(null)}>Close</button>
+            <button onClick={() => clearModal(null)}>Close</button>
           </div>
           <div>
             {data.availableSlots.length === 0 ? (
@@ -58,7 +95,10 @@ const WorkstationModal = ({ workstation, token, clearWorkstation }) => {
                 {data.availableSlots.map((slot, i) => (
                   <li key={i}>
                     <ul>
-                      <li>
+                      <li
+                        onClick={() => setSelectedSlot(slot)}
+                        className='cursor-pointer'
+                      >
                         {getHourAndMinutes(slot.startTime)} -{' '}
                         {getHourAndMinutes(slot.endTime)}
                       </li>
@@ -74,12 +114,29 @@ const WorkstationModal = ({ workstation, token, clearWorkstation }) => {
               name='date-selector'
               onChange={handleCalendarInput}
               id='date-selector'
+              value={selectedDate}
+              min={today}
             />
+            <button type='button' onClick={() => setDate(selectedDate)}>
+              Search
+            </button>
           </div>
+          {selectedSlot && (
+            <div>
+              <button type='button' onClick={bookWorkstation}>
+                Book
+              </button>
+              <button type='button' onClick={() => setSelectedSlot(null)}>
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
       {state === SCREEN_STATES.LOADING && <LoadingSpinner />}
-      {state === SCREEN_STATES.ERROR && <Error error={error} />}
+      {state === SCREEN_STATES.ERROR && (
+        <Error error={error} setters={{ setError, setState }} />
+      )}
     </>
   );
 };

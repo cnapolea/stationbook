@@ -41,6 +41,7 @@ export const SERVER_API_ENDPOINTS = {
   login: `${API_BASE_URL}/auth/login`,
   register: `${API_BASE_URL}/auth/register`,
   workstations: `${API_BASE_URL}/api/workstations`,
+  bookings: `${API_BASE_URL}/api/bookings`,
   workstationSlots: (workstationdId) =>
     `${API_BASE_URL}/api/workstations/${workstationdId}/slots`,
 };
