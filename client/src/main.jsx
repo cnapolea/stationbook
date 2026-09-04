@@ -7,6 +7,7 @@ import { Health } from './screens/Health.jsx';
 import { Register } from './screens/Register.jsx';
 import Workstations from './screens/Workstations.jsx';
 import ProtectedRoutes from './components/ProtectedRoutes.jsx';
+import MyBookings from './screens/MyBookings.jsx';
 
 const router = createBrowserRouter([
   {
@@ -27,6 +28,10 @@ const router = createBrowserRouter([
       {
         path: '/workstations',
         element: <Workstations />,
+      },
+      {
+        path: '/my-bookings',
+        element: <MyBookings />,
       },
     ],
   },

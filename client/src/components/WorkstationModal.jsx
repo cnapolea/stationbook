@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
   CLIENT_ROUTES,
   HTTP_REQUEST_METHOD,
+  NETWORK_ERROR,
   RESPONSE_STATUS_CODE,
   SCREEN_STATES,
   SERVER_API_ENDPOINTS,
@@ -10,7 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import fetchData from '../lib/fetchData';
 import LoadingSpinner from './LoadingSpinner';
-import Error from '../screens/Error';
+import ErrorScreen from '../screens/ErrorScreen';
 import getHourAndMinutes from '../lib/getHourAndMinutes';
 
 const WorkstationModal = ({ workstation, token, clearModal }) => {
@@ -26,26 +27,33 @@ const WorkstationModal = ({ workstation, token, clearModal }) => {
   const setters = { setData, setState, setError };
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const query = new URLSearchParams({ date });
-    const reqObj = {
-      url: `${SERVER_API_ENDPOINTS.workstationSlots(workstation.id)}?${query}`,
-      options: {
-        method: HTTP_REQUEST_METHOD.GET,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    };
+  const query = new URLSearchParams({ date });
 
-    fetchData(setters, reqObj, navigate);
+  const slotsReqObj = {
+    url: `${SERVER_API_ENDPOINTS.workstationSlots(workstation.id)}?${query}`,
+    options: {
+      method: HTTP_REQUEST_METHOD.GET,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  };
+  useEffect(() => {
+    fetchData(setters, slotsReqObj, navigate);
   }, [date]);
 
   function handleCalendarInput(e) {
     setSelectedDate(e.target.value);
   }
 
+  function handleRetryBtn() {
+    setError(null);
+    fetchData(setters, slotsReqObj, navigate);
+  }
+
   async function bookWorkstation() {
+    setState(SCREEN_STATES.LOADING);
+
     const reqObj = {
       url: SERVER_API_ENDPOINTS.bookings,
       options: {
@@ -60,21 +68,28 @@ const WorkstationModal = ({ workstation, token, clearModal }) => {
         }),
       },
     };
+    try {
+      const response = await fetch(reqObj.url, { ...reqObj.options });
+      const data = await response.json();
 
-    const response = await fetch(reqObj.url, { ...reqObj.options });
-    const data = await response.json();
-
-    if (
-      !response.ok &&
-      response.status === RESPONSE_STATUS_CODE.NOT_AUTHENTICATED
-    ) {
-      navigate(CLIENT_ROUTES.LOGIN, { replace: true });
-    } else if (!response.ok) {
-      setError({ statusCode: response.status, message: data.message });
+      if (
+        !response.ok &&
+        response.status === RESPONSE_STATUS_CODE.NOT_AUTHENTICATED
+      ) {
+        navigate(CLIENT_ROUTES.LOGIN, { replace: true });
+      } else if (!response.ok) {
+        setError({ statusCode: response.status, message: data.message });
+        setState(SCREEN_STATES.ERROR);
+      } else {
+        clearModal(null);
+        navigate(CLIENT_ROUTES.MY_BOOKINGS);
+      }
+    } catch (error) {
+      setError({
+        statusCode: NETWORK_ERROR.header,
+        message: NETWORK_ERROR.body,
+      });
       setState(SCREEN_STATES.ERROR);
-    } else {
-      clearModal(null);
-      navigate('/my-bookings');
     }
   }
 
@@ -92,8 +107,8 @@ const WorkstationModal = ({ workstation, token, clearModal }) => {
             ) : (
               <ul>
                 <li>{date}</li>
-                {data.availableSlots.map((slot, i) => (
-                  <li key={i}>
+                {data.availableSlots.map((slot) => (
+                  <li key={slot.startTime}>
                     <ul>
                       <li
                         onClick={() => setSelectedSlot(slot)}
@@ -135,7 +150,16 @@ const WorkstationModal = ({ workstation, token, clearModal }) => {
       )}
       {state === SCREEN_STATES.LOADING && <LoadingSpinner />}
       {state === SCREEN_STATES.ERROR && (
-        <Error error={error} setters={{ setError, setState }} />
+        <div>
+          <button onClick={() => clearModal(null)}>Close</button>
+          <ErrorScreen error={error} setters={{ setError, setState }} />
+          {(error.statusCode >= RESPONSE_STATUS_CODE.INTERNAL_SERVER_ERROR ||
+            error.statusCode === NETWORK_ERROR.header) && (
+            <button type='button' onClick={handleRetryBtn}>
+              Retry
+            </button>
+          )}
+        </div>
       )}
     </>
   );

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
   HTTP_REQUEST_METHOD,
+  NETWORK_ERROR,
+  RESPONSE_STATUS_CODE,
   SCREEN_STATES,
   SERVER_API_ENDPOINTS,
 } from '../lib/constants';
 import { useNavigate } from 'react-router-dom';
-import Error from './Error';
+import ErrorScreen from './ErrorScreen';
 import LoadingSpinner from '../components/LoadingSpinner';
 import WorkstationModal from '../components/WorkstationModal';
 import fetchData from '../lib/fetchData';
@@ -38,10 +40,25 @@ const Workstations = () => {
     fetchData(setters, reqObj, navigate);
   }, []);
 
+  function handleRetryBtn() {
+    setError(null);
+    fetchData(setters, reqObj, navigate);
+  }
+
   return (
     <>
       {state === SCREEN_STATES.IDLE && <h1>NO WORKSTATION</h1>}
-      {state === SCREEN_STATES.ERROR && <Error error={error} />}
+      {state === SCREEN_STATES.ERROR && (
+        <div>
+          <ErrorScreen error={error} />
+          {(error.statusCode >= RESPONSE_STATUS_CODE.INTERNAL_SERVER_ERROR ||
+            error.statusCode === NETWORK_ERROR.header) && (
+            <button type='button' onClick={handleRetryBtn}>
+              Retry
+            </button>
+          )}
+        </div>
+      )}
       {state === SCREEN_STATES.LOADING && <LoadingSpinner />}
       {state === SCREEN_STATES.LOADED && (
         <div className='flex flex-row'>
@@ -58,6 +75,7 @@ const Workstations = () => {
           </ul>
           {selectedWorkstation && (
             <WorkstationModal
+              key={selectedWorkstation.id}
               workstation={selectedWorkstation}
               token={token}
               clearModal={setSelectedWorkstation}
